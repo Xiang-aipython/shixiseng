@@ -73,11 +73,6 @@ def setup_chinese_font():
         '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc',
     ]
     
-    for font_path in font_paths:
-        if os.path.exists(font_path):
-            st.success(f"✅ 找到字体文件: {font_path}")
-            return font_path
-    
     # 如果都没找到，列出当前目录文件帮助调试
     st.warning("⚠️ 未找到中文字体文件")
     st.info(f"当前目录文件列表: {os.listdir(current_dir)}")
@@ -141,36 +136,60 @@ def create_sample_data():
     return clean_data(df)
 
 def generate_wordcloud_with_chinese(skills_list, font_path):
-    """生成支持中文的词云"""
+    """生成词云 - 兼容性更好的版本"""
     if not skills_list:
         return None
     
     try:
         text = ' '.join(skills_list)
         
-        if font_path and os.path.exists(font_path):
-            wordcloud = WordCloud(
-                font_path=font_path,
-                width=800, 
-                height=400, 
-                background_color='white',
-                colormap='plasma',
-                max_words=50,
-                relative_scaling=0.5,
-                random_state=42
-            ).generate(text)
-        else:
-            # 备用方案：不使用字体
-            wordcloud = WordCloud(
-                width=800, 
-                height=400, 
-                background_color='white',
-                colormap='plasma',
-                max_words=50,
-                relative_scaling=0.5
-            ).generate(text)
+        # 配置参数
+        wordcloud_params = {
+            'width': 800,
+            'height': 400,
+            'background_color': 'white',
+            'colormap': 'plasma',
+            'max_words': 50,
+            'relative_scaling': 0.5,
+            'random_state': 42
+        }
         
+        # 尝试使用提供的字体
+        if font_path and os.path.exists(font_path):
+            try:
+                wordcloud_params['font_path'] = font_path
+                wordcloud = WordCloud(**wordcloud_params).generate(text)
+                st.sidebar.success("✅ 使用自定义字体生成词云")
+                return wordcloud
+            except Exception as font_error:
+                st.sidebar.warning(f"⚠️ 自定义字体失败: {font_error}")
+        
+        # 备用方案1：尝试系统字体
+        try:
+            # 常见的中文字体名称
+            system_fonts = [
+                'SimHei', 'Microsoft YaHei', 'SimSun', 'KaiTi', 
+                'DejaVu Sans', 'Arial Unicode MS', 'sans-serif'
+            ]
+            
+            for font_name in system_fonts:
+                try:
+                    wordcloud_params['font_path'] = None
+                    # 尝试设置字体名称而不是路径
+                    plt.rcParams['font.family'] = font_name
+                    wordcloud = WordCloud(**wordcloud_params).generate(text)
+                    st.sidebar.info(f"✅ 使用系统字体: {font_name}")
+                    return wordcloud
+                except:
+                    continue
+        except Exception as system_error:
+            st.sidebar.warning(f"⚠️ 系统字体尝试失败: {system_error}")
+        
+        # 备用方案2：不使用字体（纯英文词云）
+        st.sidebar.info("🔄 使用默认设置生成词云")
+        wordcloud = WordCloud(**wordcloud_params).generate(text)
         return wordcloud
+        
     except Exception as e:
         st.error(f"词云生成错误: {e}")
         return None
@@ -488,6 +507,7 @@ if st.sidebar.checkbox("显示调试信息", False):
     st.sidebar.write(f"筛选后行数: {len(filtered_df)}")
     st.sidebar.write(f"字体路径: {FONT_PATH}")
     st.sidebar.write(f"技能列表: {all_skills_filtered[:10]}")
+
 
 
 
