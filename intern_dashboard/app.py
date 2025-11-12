@@ -78,42 +78,24 @@ FONT_PATH = setup_chinese_font()
 # 数据加载函数
 @st.cache_data
 def load_data():
-    """加载数据 - 适配Streamlit Cloud部署"""
+    """加载数据 - 修复路径问题"""
     try:
-        # 方法1: 尝试从GitHub RAW URL加载
-        github_raw_url = "https://raw.githubusercontent.com/你的用户名/你的仓库名/main/data/shixiseng_data_analyzer_jobs_20251112_165150.xlsx"
+        # 获取当前文件所在目录
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        data_path = os.path.join(current_dir, 'data', 'shixiseng_data_analyzer_jobs_20251112_165150.xlsx')
         
-        # 方法2: 本地文件路径（部署时可能不存在）
-        local_paths = [
-            'data/shixiseng_data_analyzer_jobs_20251112_165150.xlsx',
-            './data/shixiseng_data_analyzer_jobs_20251112_165150.xlsx',
-            'shixiseng_data_analyzer_jobs_20251112_165150.xlsx'
-        ]
-        
-        # 先尝试GitHub RAW URL
-        try:
-            import requests
-            from io import BytesIO
+        if os.path.exists(data_path):
+            df = pd.read_excel(data_path)
+            from utils.data_cleaner import clean_data
+            return clean_data(df)
+        else:
+            # 列出当前目录文件，帮助调试
+            st.warning(f"文件不存在: {data_path}")
+            st.info(f"当前目录文件: {os.listdir('.')}")
+            if os.path.exists('data'):
+                st.info(f"data目录文件: {os.listdir('data')}")
+            return create_sample_data()
             
-            response = requests.get(github_raw_url)
-            if response.status_code == 200:
-                df = pd.read_excel(BytesIO(response.content))
-                from utils.data_cleaner import clean_data
-                return clean_data(df)
-        except:
-            pass
-        
-        # 再尝试本地文件
-        for path in local_paths:
-            if os.path.exists(path):
-                df = pd.read_excel(path)
-                from utils.data_cleaner import clean_data
-                return clean_data(df)
-        
-        # 如果都失败，使用示例数据
-        st.warning("⚠️ 使用示例数据，如需完整数据请配置GitHub RAW URL")
-        return create_sample_data()
-        
     except Exception as e:
         st.error(f"数据加载失败: {e}")
         return create_sample_data()
@@ -492,4 +474,5 @@ if st.sidebar.checkbox("显示调试信息", False):
     st.sidebar.write(f"筛选后行数: {len(filtered_df)}")
     st.sidebar.write(f"字体路径: {FONT_PATH}")
     st.sidebar.write(f"技能列表: {all_skills_filtered[:10]}")
+
 
