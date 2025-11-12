@@ -2,12 +2,10 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from collections import Counter
 import numpy as np
 import os
-import base64
 
 # 设置matplotlib使用中文字体
 plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']  # 用来正常显示中文标签
@@ -47,28 +45,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-def setup_chinese_font():
-    """自动获取字体文件的绝对路径"""
-    # 获取当前脚本的绝对路径
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    
-    # 字体文件的绝对路径
-    font_path = os.path.join(current_dir, 'simhei.ttf')
-    
-    st.write(f"字体文件路径: {font_path}")  # 调试信息
-    
-    if os.path.exists(font_path):
-        return font_path
-    else:
-        # 尝试Windows系统字体
-        windows_font = r"C:\Windows\Fonts\simhei.ttf"
-        if os.path.exists(windows_font):
-            return windows_font
-        return None
-
-# 获取字体路径
-FONT_PATH = setup_chinese_font()
-
 # 数据加载函数
 @st.cache_data
 def load_data():
@@ -94,7 +70,6 @@ def load_data():
         st.error(f"数据加载失败: {e}")
         return create_sample_data()
 
-
 def create_sample_data():
     """创建示例数据"""
     sample_data = {
@@ -119,65 +94,6 @@ def create_sample_data():
     df = pd.DataFrame(sample_data)
     from utils.data_cleaner import clean_data
     return clean_data(df)
-
-def generate_wordcloud_with_chinese(skills_list, font_path):
-    """生成词云 - 兼容性更好的版本"""
-    if not skills_list:
-        return None
-    
-    try:
-        text = ' '.join(skills_list)
-        
-        # 配置参数
-        wordcloud_params = {
-            'width': 800,
-            'height': 400,
-            'background_color': 'white',
-            'colormap': 'plasma',
-            'max_words': 50,
-            'relative_scaling': 0.5,
-            'random_state': 42
-        }
-        
-        # 尝试使用提供的字体
-        if font_path and os.path.exists(font_path):
-            try:
-                wordcloud_params['font_path'] = font_path
-                wordcloud = WordCloud(**wordcloud_params).generate(text)
-                st.sidebar.success("✅ 使用自定义字体生成词云")
-                return wordcloud
-            except Exception as font_error:
-                st.sidebar.warning(f"⚠️ 自定义字体失败: {font_error}")
-        
-        # 备用方案1：尝试系统字体
-        try:
-            # 常见的中文字体名称
-            system_fonts = [
-                'SimHei', 'Microsoft YaHei', 'SimSun', 'KaiTi', 
-                'DejaVu Sans', 'Arial Unicode MS', 'sans-serif'
-            ]
-            
-            for font_name in system_fonts:
-                try:
-                    wordcloud_params['font_path'] = None
-                    # 尝试设置字体名称而不是路径
-                    plt.rcParams['font.family'] = font_name
-                    wordcloud = WordCloud(**wordcloud_params).generate(text)
-                    st.sidebar.info(f"✅ 使用系统字体: {font_name}")
-                    return wordcloud
-                except:
-                    continue
-        except Exception as system_error:
-            st.sidebar.warning(f"⚠️ 系统字体尝试失败: {system_error}")
-        
-        # 备用方案2：不使用字体（纯英文词云）
-        st.sidebar.info("🔄 使用默认设置生成词云")
-        wordcloud = WordCloud(**wordcloud_params).generate(text)
-        return wordcloud
-        
-    except Exception as e:
-        st.error(f"词云生成错误: {e}")
-        return None
 
 # 标题
 st.markdown('<h1 class="main-header">📊 数据分析实习岗位洞察仪表盘</h1>', unsafe_allow_html=True)
@@ -308,7 +224,7 @@ st.markdown("### 🛠️ 技能需求分析")
 col1, col2 = st.columns(2)
 
 with col1:
-    # 技能词频
+    # 技能词频 - 主要技能排行
     all_skills_filtered = [skill for sublist in filtered_df['skills'] for skill in sublist if skill]
     if all_skills_filtered:
         skill_counts = Counter(all_skills_filtered)
@@ -328,31 +244,28 @@ with col1:
         st.info("暂无技能数据")
 
 with col2:
-    # 词云
+    # 技能分布饼图 - 替代词云
+    all_skills_filtered = [skill for sublist in filtered_df['skills'] for skill in sublist if skill]
     if all_skills_filtered:
-        wordcloud = generate_wordcloud_with_chinese(all_skills_filtered, FONT_PATH)
+        skill_counts = Counter(all_skills_filtered)
         
-        if wordcloud:
-            fig, ax = plt.subplots(figsize=(10, 5))
-            ax.imshow(wordcloud, interpolation='bilinear')
-            ax.axis('off')
-            ax.set_title('🔤 技能词云图')
-            st.pyplot(fig)
-        else:
-            # 词云生成失败时显示条形图
-            skill_counts = Counter(all_skills_filtered)
-            fig_fallback = px.bar(
-                x=list(skill_counts.values()),
-                y=list(skill_counts.keys()),
-                orientation='h',
-                title="🔤 技能分布（词云备用）",
-                labels={'x': '频次', 'y': '技能'},
-                color=list(skill_counts.values())
-            )
-            fig_fallback.update_layout(showlegend=False)
-            st.plotly_chart(fig_fallback, use_container_width=True)
+        # 只显示前8个技能，其他归为"其他"
+        top_skills = dict(sorted(skill_counts.items(), key=lambda x: x[1], reverse=True)[:8])
+        other_count = sum(skill_counts.values()) - sum(top_skills.values())
+        
+        if other_count > 0:
+            top_skills['其他'] = other_count
+        
+        fig_pie = px.pie(
+            values=list(top_skills.values()),
+            names=list(top_skills.keys()),
+            title="🔤 技能分布占比",
+            hole=0.3
+        )
+        fig_pie.update_traces(textposition='inside', textinfo='percent+label')
+        st.plotly_chart(fig_pie, use_container_width=True)
     else:
-        st.info("暂无技能数据用于词云生成")
+        st.info("暂无技能数据")
 
 # 第三行：公司分析
 st.markdown("---")
@@ -481,7 +394,7 @@ st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: #666;'>
     <p>💡 <b>数据来源</b>: 实习僧 | <b>更新日期</b>: 2025-11-12 | <b>版本</b>: 2.0</p>
-    <p>🚀 基于Streamlit构建 | 支持中文词云显示</p>
+    <p>🚀 基于Streamlit构建 | 优化的可视化体验</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -490,10 +403,4 @@ if st.sidebar.checkbox("显示调试信息", False):
     st.sidebar.write("### 调试信息")
     st.sidebar.write(f"数据行数: {len(df)}")
     st.sidebar.write(f"筛选后行数: {len(filtered_df)}")
-    st.sidebar.write(f"字体路径: {FONT_PATH}")
     st.sidebar.write(f"技能列表: {all_skills_filtered[:10]}")
-
-
-
-
-
