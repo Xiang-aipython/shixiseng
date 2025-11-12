@@ -9,6 +9,10 @@ import numpy as np
 import os
 import base64
 
+# 设置matplotlib使用中文字体
+plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']  # 用来正常显示中文标签
+plt.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
+
 # 页面设置
 st.set_page_config(
     page_title="数据分析实习岗位洞察",
@@ -25,38 +29,76 @@ st.markdown("""
         color: #1f77b4;
         text-align: center;
         margin-bottom: 2rem;
+        font-weight: bold;
     }
     .metric-card {
         background-color: #f0f2f6;
         padding: 1rem;
         border-radius: 10px;
         text-align: center;
+        border-left: 4px solid #1f77b4;
+    }
+    .section-header {
+        color: #1f77b4;
+        border-bottom: 2px solid #1f77b4;
+        padding-bottom: 0.5rem;
+        margin-top: 2rem;
     }
 </style>
 """, unsafe_allow_html=True)
 
+def setup_chinese_font():
+    """设置中文字体支持"""
+    font_paths = [
+        'simhei.ttf',  # 当前目录
+        './simhei.ttf',
+        'fonts/simhei.ttf',
+        './fonts/simhei.ttf',
+        # Windows 字体路径
+        'C:/Windows/Fonts/simhei.ttf',
+        'C:/Windows/Fonts/msyh.ttc',
+        'C:/Windows/Fonts/simsun.ttc',
+        # macOS 字体路径
+        '/System/Library/Fonts/PingFang.ttc',
+        '/Library/Fonts/Arial Unicode.ttf',
+        # Linux 字体路径
+        '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc',
+    ]
+    
+    for font_path in font_paths:
+        if os.path.exists(font_path):
+            return font_path
+    
+    st.warning("⚠️ 未找到中文字体文件，词云可能显示异常")
+    return None
+
+# 获取字体路径
+FONT_PATH = setup_chinese_font()
 
 # 数据加载函数
 @st.cache_data
 def load_data():
-    """加载数据 - 修复路径问题"""
+    """加载并清洗数据 - 适配部署环境"""
     try:
-        # 获取当前文件所在目录
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        data_path = os.path.join(current_dir, 'data', 'shixiseng_data_analyzer_jobs_20251112_165150.xlsx')
+        # 尝试多个可能的数据路径
+        possible_paths = [
+            'data/shixiseng_data_analyzer_jobs_20251112_165150.xlsx',
+            './data/shixiseng_data_analyzer_jobs_20251112_165150.xlsx',
+            'shixiseng_data_analyzer_jobs_20251112_165150.xlsx',
+            '../data/shixiseng_data_analyzer_jobs_20251112_165150.xlsx'
+        ]
         
-        if os.path.exists(data_path):
-            df = pd.read_excel(data_path)
-            from utils.data_cleaner import clean_data
-            return clean_data(df)
-        else:
-            # 列出当前目录文件，帮助调试
-            st.warning(f"文件不存在: {data_path}")
-            st.info(f"当前目录文件: {os.listdir('.')}")
-            if os.path.exists('data'):
-                st.info(f"data目录文件: {os.listdir('data')}")
-            return create_sample_data()
-            
+        for path in possible_paths:
+            if os.path.exists(path):
+                df = pd.read_excel(path)
+                # 动态导入清洗模块
+                from utils.data_cleaner import clean_data
+                return clean_data(df)
+        
+        # 如果找不到文件，显示错误但继续运行
+        st.error("⚠️ 未找到数据文件，显示示例数据")
+        return create_sample_data()
+        
     except Exception as e:
         st.error(f"数据加载失败: {e}")
         return create_sample_data()
@@ -64,20 +106,62 @@ def load_data():
 def create_sample_data():
     """创建示例数据"""
     sample_data = {
-        '公司名称': ['快手', '字节跳动', '滴滴', '美团', '腾讯'],
-        '岗位名称': ['数据分析实习生', '数据运营实习生', '商业分析实习生', '数据产品实习生', '数据开发实习生'],
-        '工作地点': ['北京', '上海', '北京', '北京', '深圳'],
-        '日薪': ['200-300/天', '200/天', '150-200/天', '180-250/天', '250-300/天'],
-        '职位描述': ['需要SQL Python Excel', 'SQL Tableau', 'Python SQL', 'Excel PPT SQL', 'Python Java SQL'],
-        '公司性质': ['民营企业', '民营企业', '民营企业', '民营企业', '民营企业'],
-        '公司规模': ['2000人以上', '2000人以上', '2000人以上', '2000人以上', '2000人以上'],
-        '岗位链接': ['https://example.com', 'https://example.com', 'https://example.com', 'https://example.com',
-                     'https://example.com']
+        '公司名称': ['快手', '字节跳动', '滴滴', '美团', '腾讯', '百度', '阿里巴巴', '京东'],
+        '岗位名称': ['数据分析实习生', '数据运营实习生', '商业分析实习生', '数据产品实习生', '数据开发实习生', '数据挖掘实习生', '数据科学家实习生', 'BI分析师实习生'],
+        '工作地点': ['北京', '上海', '北京', '北京', '深圳', '北京', '杭州', '北京'],
+        '日薪': ['200-300/天', '200/天', '150-200/天', '180-250/天', '250-300/天', '200-280/天', '300-400/天', '180-220/天'],
+        '职位描述': [
+            '需要SQL Python Excel 数据分析 统计学',
+            'SQL Tableau 数据可视化 业务分析',
+            'Python SQL 机器学习 数据挖掘', 
+            'Excel PPT SQL 产品思维',
+            'Python Java SQL 大数据',
+            'Python SQL 数据挖掘 算法',
+            'Python R 机器学习 深度学习',
+            'SQL Excel PowerBI 业务分析'
+        ],
+        '公司性质': ['民营企业', '民营企业', '民营企业', '民营企业', '民营企业', '民营企业', '民营企业', '民营企业'],
+        '公司规模': ['2000人以上', '2000人以上', '2000人以上', '2000人以上', '2000人以上', '2000人以上', '2000人以上', '2000人以上'],
+        '岗位链接': ['https://example.com'] * 8
     }
     df = pd.DataFrame(sample_data)
     from utils.data_cleaner import clean_data
     return clean_data(df)
 
+def generate_wordcloud_with_chinese(skills_list, font_path):
+    """生成支持中文的词云"""
+    if not skills_list:
+        return None
+    
+    try:
+        text = ' '.join(skills_list)
+        
+        if font_path and os.path.exists(font_path):
+            wordcloud = WordCloud(
+                font_path=font_path,
+                width=800, 
+                height=400, 
+                background_color='white',
+                colormap='plasma',
+                max_words=50,
+                relative_scaling=0.5,
+                random_state=42
+            ).generate(text)
+        else:
+            # 备用方案：不使用字体
+            wordcloud = WordCloud(
+                width=800, 
+                height=400, 
+                background_color='white',
+                colormap='plasma',
+                max_words=50,
+                relative_scaling=0.5
+            ).generate(text)
+        
+        return wordcloud
+    except Exception as e:
+        st.error(f"词云生成错误: {e}")
+        return None
 
 # 标题
 st.markdown('<h1 class="main-header">📊 数据分析实习岗位洞察仪表盘</h1>', unsafe_allow_html=True)
@@ -118,6 +202,10 @@ selected_skills = st.sidebar.multiselect("技能要求", all_skills)
 company_types = ['全部'] + sorted(df['公司性质'].dropna().unique().tolist())
 selected_type = st.sidebar.selectbox("公司性质", company_types, index=0)
 
+# 实习时长筛选
+duration_options = ['全部', '3个月', '4个月', '6个月', '6个月以上']
+selected_duration = st.sidebar.selectbox("实习时长", duration_options, index=0)
+
 # 应用筛选
 filtered_df = df.copy()
 if selected_city != '全部':
@@ -125,9 +213,9 @@ if selected_city != '全部':
 
 if not df['avg_salary'].isna().all():
     filtered_df = filtered_df[
-        (filtered_df['avg_salary'] >= min_salary) &
+        (filtered_df['avg_salary'] >= min_salary) & 
         (filtered_df['avg_salary'] <= max_salary)
-        ]
+    ]
 
 if selected_skills:
     filtered_df = filtered_df[
@@ -139,14 +227,16 @@ if selected_type != '全部':
 
 # KPI指标行
 st.markdown("---")
+st.markdown("### 📈 核心指标")
+
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     total_jobs = len(filtered_df)
-    st.metric("📊 总岗位数", f"{total_jobs}个")
+    st.metric("📊 总岗位数", f"{total_jobs}个", delta=f"{len(filtered_df)-len(df)}" if len(filtered_df) != len(df) else None)
 
 with col2:
-    if not filtered_df['avg_salary'].isna().all():
+    if not filtered_df['avg_salary'].isna().all() and len(filtered_df) > 0:
         avg_salary = filtered_df['avg_salary'].mean()
         st.metric("💰 平均日薪", f"¥{avg_salary:.0f}元")
     else:
@@ -162,7 +252,7 @@ with col4:
 
 # 第一行：分布图表
 st.markdown("---")
-st.subheader("📈 分布分析")
+st.markdown("### 📊 分布分析")
 
 col1, col2 = st.columns(2)
 
@@ -179,6 +269,7 @@ with col1:
             color=city_counts.values,
             color_continuous_scale='blues'
         )
+        fig_city.update_layout(showlegend=False)
         st.plotly_chart(fig_city, use_container_width=True)
 
 with col2:
@@ -191,10 +282,12 @@ with col2:
             labels={'avg_salary': '日薪(元)'}
         )
         st.plotly_chart(fig_salary, use_container_width=True)
+    else:
+        st.info("暂无薪资数据")
 
 # 第二行：技能分析
 st.markdown("---")
-st.subheader("🛠️ 技能需求分析")
+st.markdown("### 🛠️ 技能需求分析")
 
 col1, col2 = st.columns(2)
 
@@ -203,40 +296,51 @@ with col1:
     all_skills_filtered = [skill for sublist in filtered_df['skills'] for skill in sublist if skill]
     if all_skills_filtered:
         skill_counts = Counter(all_skills_filtered)
-
+        
         fig_skills = px.bar(
-            x=list(skill_counts.keys()),
-            y=list(skill_counts.values()),
+            x=list(skill_counts.values()),
+            y=list(skill_counts.keys()),
+            orientation='h',
             title="📊 技能需求排行",
-            labels={'x': '技能', 'y': '出现频次'},
+            labels={'x': '出现频次', 'y': '技能'},
             color=list(skill_counts.values()),
             color_continuous_scale='viridis'
         )
+        fig_skills.update_layout(showlegend=False)
         st.plotly_chart(fig_skills, use_container_width=True)
+    else:
+        st.info("暂无技能数据")
 
 with col2:
     # 词云
     if all_skills_filtered:
-        try:
-            wordcloud = WordCloud(
-                width=800,
-                height=400,
-                background_color='white',
-                colormap='plasma',
-                max_words=50
-            ).generate(' '.join(all_skills_filtered))
-
+        wordcloud = generate_wordcloud_with_chinese(all_skills_filtered, FONT_PATH)
+        
+        if wordcloud:
             fig, ax = plt.subplots(figsize=(10, 5))
             ax.imshow(wordcloud, interpolation='bilinear')
             ax.axis('off')
             ax.set_title('🔤 技能词云图')
             st.pyplot(fig)
-        except Exception as e:
-            st.warning(f"词云生成失败: {e}")
+        else:
+            # 词云生成失败时显示条形图
+            skill_counts = Counter(all_skills_filtered)
+            fig_fallback = px.bar(
+                x=list(skill_counts.values()),
+                y=list(skill_counts.keys()),
+                orientation='h',
+                title="🔤 技能分布（词云备用）",
+                labels={'x': '频次', 'y': '技能'},
+                color=list(skill_counts.values())
+            )
+            fig_fallback.update_layout(showlegend=False)
+            st.plotly_chart(fig_fallback, use_container_width=True)
+    else:
+        st.info("暂无技能数据用于词云生成")
 
 # 第三行：公司分析
 st.markdown("---")
-st.subheader("🏢 公司分析")
+st.markdown("### 🏢 公司分析")
 
 col1, col2 = st.columns(2)
 
@@ -251,6 +355,8 @@ with col1:
             hole=0.4
         )
         st.plotly_chart(fig_size, use_container_width=True)
+    else:
+        st.info("暂无公司规模数据")
 
 with col2:
     # 公司性质
@@ -264,29 +370,60 @@ with col2:
             color=type_counts.values,
             color_continuous_scale='teal'
         )
+        fig_type.update_layout(showlegend=False)
         st.plotly_chart(fig_type, use_container_width=True)
+    else:
+        st.info("暂无公司性质数据")
+
+# 第四行：热门公司
+st.markdown("---")
+st.markdown("### 🏆 热门公司排行")
+
+if not filtered_df.empty:
+    company_counts = filtered_df['公司名称'].value_counts().head(10)
+    fig_company = px.bar(
+        x=company_counts.values,
+        y=company_counts.index,
+        orientation='h',
+        title="🔥 招聘岗位最多的公司TOP10",
+        labels={'x': '岗位数量', 'y': '公司名称'},
+        color=company_counts.values,
+        color_continuous_scale='reds'
+    )
+    fig_company.update_layout(showlegend=False)
+    st.plotly_chart(fig_company, use_container_width=True)
 
 # 岗位详情表格
 st.markdown("---")
-st.subheader("📋 岗位详情列表")
-st.markdown(f"显示 **{len(filtered_df)}** 个匹配岗位")
+st.markdown("### 📋 岗位详情列表")
 
 if not filtered_df.empty:
+    st.markdown(f"显示 **{len(filtered_df)}** 个匹配岗位")
+    
     # 简化显示列
     display_columns = ['公司名称', '岗位名称', 'clean_city', '日薪', 'skills', '岗位链接']
     display_df = filtered_df[display_columns].copy()
     display_df['skills'] = display_df['skills'].apply(lambda x: ', '.join(x) if x else '无')
     display_df = display_df.rename(columns={'clean_city': '工作地点'})
-
-    # 显示表格
+    
+    # 分页显示
+    page_size = 10
+    total_pages = max(1, (len(display_df) + page_size - 1) // page_size)
+    
+    page_number = st.number_input("页码", min_value=1, max_value=total_pages, value=1)
+    start_idx = (page_number - 1) * page_size
+    end_idx = min(start_idx + page_size, len(display_df))
+    
     st.dataframe(
-        display_df,
+        display_df.iloc[start_idx:end_idx],
         use_container_width=True,
         height=400
     )
-
+    
+    st.caption(f"显示第 {start_idx + 1} - {end_idx} 条，共 {len(display_df)} 条记录")
+    
     # 数据下载
-    csv = display_df.to_csv(index=False)
+    csv = display_df.to_csv(index=False, encoding='utf-8-sig')
     st.download_button(
         label="📥 下载筛选后数据(CSV)",
         data=csv,
@@ -295,14 +432,47 @@ if not filtered_df.empty:
         use_container_width=True
     )
 else:
-    st.warning("没有找到匹配的岗位，请调整筛选条件")
+    st.warning("🚫 没有找到匹配的岗位，请调整筛选条件")
+
+# 使用说明
+with st.expander("💡 使用说明"):
+    st.markdown("""
+    ### 使用指南
+    
+    1. **数据筛选**：使用左侧筛选器按城市、薪资、技能等条件筛选岗位
+    2. **数据可视化**：查看上方的图表了解岗位分布、技能需求等趋势
+    3. **岗位详情**：在下方表格中查看具体的岗位信息
+    4. **数据导出**：点击下载按钮导出筛选后的数据
+    
+    ### 功能特点
+    
+    - 🔍 **智能筛选**：多维度精准筛选
+    - 📊 **可视化分析**：图表直观展示数据趋势
+    - 🛠️ **技能洞察**：分析市场需求技能
+    - 📥 **数据导出**：支持CSV格式导出
+    - 📱 **响应式设计**：适配不同设备
+    
+    ### 技术支持
+    
+    如遇问题，请检查：
+    - 数据文件是否在正确位置
+    - 网络连接是否正常
+    - 浏览器是否支持现代Web技术
+    """)
 
 # 页脚
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: #666;'>
-    <p>💡 <b>数据来源</b>: 实习僧 | <b>更新日期</b>: 2025-11-12</p>
-    <p>🚀 基于Streamlit构建 | 如有问题请联系技术支持</p>
+    <p>💡 <b>数据来源</b>: 实习僧 | <b>更新日期</b>: 2025-11-12 | <b>版本</b>: 2.0</p>
+    <p>🚀 基于Streamlit构建 | 支持中文词云显示</p>
 </div>
-
 """, unsafe_allow_html=True)
+
+# 调试信息（可注释掉）
+if st.sidebar.checkbox("显示调试信息", False):
+    st.sidebar.write("### 调试信息")
+    st.sidebar.write(f"数据行数: {len(df)}")
+    st.sidebar.write(f"筛选后行数: {len(filtered_df)}")
+    st.sidebar.write(f"字体路径: {FONT_PATH}")
+    st.sidebar.write(f"技能列表: {all_skills_filtered[:10]}")
