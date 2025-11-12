@@ -48,12 +48,20 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def setup_chinese_font():
-    """设置中文字体支持"""
+    """设置中文字体支持 - 修复版本"""
+    # 获取当前文件所在目录
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    
     font_paths = [
-        'simhei.ttf',  # 当前目录
+        # 当前目录
+        os.path.join(current_dir, 'simhei.ttf'),
+        # data目录
+        os.path.join(current_dir, 'data', 'simhei.ttf'),
+        # utils目录
+        os.path.join(current_dir, 'utils', 'simhei.ttf'),
+        # 直接当前目录
+        'simhei.ttf',
         './simhei.ttf',
-        'fonts/simhei.ttf',
-        './fonts/simhei.ttf',
         # Windows 字体路径
         'C:/Windows/Fonts/simhei.ttf',
         'C:/Windows/Fonts/msyh.ttc',
@@ -67,9 +75,15 @@ def setup_chinese_font():
     
     for font_path in font_paths:
         if os.path.exists(font_path):
+            st.success(f"✅ 找到字体文件: {font_path}")
             return font_path
     
-    st.warning("⚠️ 未找到中文字体文件，词云可能显示异常")
+    # 如果都没找到，列出当前目录文件帮助调试
+    st.warning("⚠️ 未找到中文字体文件")
+    st.info(f"当前目录文件列表: {os.listdir(current_dir)}")
+    if os.path.exists(os.path.join(current_dir, 'data')):
+        st.info(f"data目录文件列表: {os.listdir(os.path.join(current_dir, 'data'))}")
+    
     return None
 
 # 获取字体路径
@@ -474,5 +488,6 @@ if st.sidebar.checkbox("显示调试信息", False):
     st.sidebar.write(f"筛选后行数: {len(filtered_df)}")
     st.sidebar.write(f"字体路径: {FONT_PATH}")
     st.sidebar.write(f"技能列表: {all_skills_filtered[:10]}")
+
 
 
