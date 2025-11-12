@@ -39,31 +39,27 @@ st.markdown("""
 # 数据加载函数
 @st.cache_data
 def load_data():
-    """加载并清洗数据 - 适配部署环境"""
+    """加载数据 - 修复路径问题"""
     try:
-        # 尝试多个可能的数据路径
-        possible_paths = [
-            'data/shixiseng_data_analyzer_jobs_20251112_165150.xlsx',
-            './data/shixiseng_data_analyzer_jobs_20251112_165150.xlsx',
-            'shixiseng_data_analyzer_jobs_20251112_165150.xlsx',
-            '../data/shixiseng_data_analyzer_jobs_20251112_165150.xlsx'
-        ]
-
-        for path in possible_paths:
-            if os.path.exists(path):
-                df = pd.read_excel(path)
-                # 动态导入清洗模块
-                from utils.data_cleaner import clean_data
-                return clean_data(df)
-
-        # 如果找不到文件，显示错误但继续运行
-        st.error("⚠️ 未找到数据文件，显示示例数据")
-        return create_sample_data()
-
+        # 获取当前文件所在目录
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        data_path = os.path.join(current_dir, 'data', 'shixiseng_data_analyzer_jobs_20251112_165150.xlsx')
+        
+        if os.path.exists(data_path):
+            df = pd.read_excel(data_path)
+            from utils.data_cleaner import clean_data
+            return clean_data(df)
+        else:
+            # 列出当前目录文件，帮助调试
+            st.warning(f"文件不存在: {data_path}")
+            st.info(f"当前目录文件: {os.listdir('.')}")
+            if os.path.exists('data'):
+                st.info(f"data目录文件: {os.listdir('data')}")
+            return create_sample_data()
+            
     except Exception as e:
         st.error(f"数据加载失败: {e}")
         return create_sample_data()
-
 
 def create_sample_data():
     """创建示例数据"""
@@ -308,4 +304,5 @@ st.markdown("""
     <p>💡 <b>数据来源</b>: 实习僧 | <b>更新日期</b>: 2025-11-12</p>
     <p>🚀 基于Streamlit构建 | 如有问题请联系技术支持</p>
 </div>
+
 """, unsafe_allow_html=True)
